@@ -1,0 +1,67 @@
+<html lang="de">
+<body>
+<div>
+    <label for="app">App</label>
+    <select id="app">
+        <option value="mobilcom-debitel.de/onlineservice/vertragsverlaengerung/sonderangebot">Landingpage</option>
+        <option value="mobilcom-debitel.de/onlineservice/vertragsverlaengerung">Multibrand-MD</option>
+        <option value="klarmobil.de/onlineservice/vertragsverlaengerung/sonderangebot">Multibrand-KM</option>
+    </select>
+</div>
+<div>
+    <label for="environment">Umgebung</label>
+    <select id="environment">
+        <option value="https://www-git">GIT</option>
+        <option value = "https://www">PROD</option>
+    </select>
+</div>
+<div>
+    <label for="customer">Kundennummer:</label>
+    <input type="text" id="customer" placeholder="MC.12345">
+</div>
+<div>
+    <label for="contract">Vertragsnummer:</label>
+    <input type="text" id="contract" placeholder="MC.12345">
+</div>
+<div>
+    <label for="customer">Händlernummer:</label>
+    <input type="text" id="salespartner" placeholder="12345">
+</div>
+<div>
+    <label for="tan">TAN:</label>
+    <input type="text" id="tan" placeholder="asdf">
+</div>
+<div>
+    <button id="createUrl">Link erzeugen</button>
+</div>
+<hr>
+<div>
+    <a id="link" href="#">Beispiel-Link</a>
+</div>
+</body>
+<script>
+    function valueById(id) {
+        return document.getElementById(id).value
+    }
+    document.getElementById('createUrl').addEventListener(
+        'click',
+        () => {
+            const linkElement = document.getElementById('link');
+            const app = valueById('app');
+            const environment = valueById('environment');
+            const link = Object.entries({
+                contract: {value: valueById('contract'), base64: true},
+                customer: {value: valueById('customer'), base64: true},
+                hdlnr: {value: valueById('salespartner'), base64: true},
+                tan: {value: valueById('tan')},
+            }).reduce(
+                (result, [parameterName, {value, base64}]) =>
+                    `${result}&${parameterName}=${encodeURIComponent(base64 ? btoa(value) : value)}`,
+                ''
+            ).replace(/&/,`${environment}.${app}?`);
+            linkElement.innerText = link;
+            linkElement.href = link;
+        }
+    )
+</script>
+</html>
