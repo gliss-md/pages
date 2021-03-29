@@ -5,6 +5,7 @@
     <select id="app">
         <option value="mobilcom-debitel.de/onlineservice/vertragsverlaengerung/sonderangebot">Landingpage</option>
         <option value="mobilcom-debitel.de/onlineservice/vertragsverlaengerung">Multibrand-MD</option>
+        <option value="mobilcom-debitel.de/os-offene-rechnung">Digitale-Bezahlseite-MD</option>
         <option value="klarmobil.de/onlineservice/vertragsverlaengerung/sonderangebot">Multibrand-KM</option>
     </select>
 </div>
@@ -40,21 +41,36 @@
 </div>
 </body>
 <script>
+    var dropDown = document.getElementById("app");
     function valueById(id) {
         return document.getElementById(id).value
     }
+    dropDown.addEventListener("change", function () {
+        if (dropDown.value === "mobilcom-debitel.de/os-offene-rechnung") {
+            salespartner.disabled = true;
+            contract.disabled = true;
+        }
+    });
     document.getElementById('createUrl').addEventListener(
         'click',
         () => {
             const linkElement = document.getElementById('link');
             const app = valueById('app');
             const environment = valueById('environment');
-            const link = Object.entries({
-                contract: {value: valueById('contract'), base64: true},
-                customer: {value: valueById('customer'), base64: true},
-                hdlnr: {value: valueById('salespartner'), base64: true},
-                tan: {value: valueById('tan')},
-            }).reduce(
+            let link;
+            if (dropDown.value === "mobilcom-debitel.de/os-offene-rechnung"){
+                link = Object.entries({
+                    tan: {value: valueById('customer') + ':' + valueById('tan'), base64: true}
+                });
+            } else {
+                link = Object.entries({
+                    contract: {value: valueById('contract'), base64: true},
+                    customer: {value: valueById('customer'), base64: true},
+                    hdlnr: {value: valueById('salespartner'), base64: true},
+                    tan: {value: valueById('tan')},
+                })
+            }
+            link = link.reduce(
                 (result, [parameterName, {value, base64}]) =>
                     `${result}&${parameterName}=${encodeURIComponent(base64 ? btoa(value) : value)}`,
                 ''
