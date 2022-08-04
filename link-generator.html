@@ -1,10 +1,25 @@
 <html lang="de">
 <head>
+    <title>Link-Generator</title>
     <meta charset="UTF-8">
     <style>
         div {
             margin: 0.2em 0;
         }
+        table {
+            border-spacing: 0;
+            border-collapse: collapse;
+        }
+        th {
+            text-align: left;
+            background-color: black;
+            color: white;
+        }
+        th, td {
+            border: solid black 1px;
+            padding: 0.2em;
+        }
+
     </style>
 </head>
 <body>
@@ -13,7 +28,7 @@
     <select id="app">
         <option value="freenet-mobilfunk.de/onlineservice/vertragsverlaengerung/sonderangebot">Landingpage</option>
         <option value="freenet-mobilfunk.de/onlineservice/vertragsverlaengerung">Multibrand-Freenet-Mobilfunk</option>
-        <option value="klarmobil.de/onlineservice/vertragsverlaengerung/sonderangebot">Multibrand-KM</option>
+        <option value="klarmobil.de/onlineservice/e/vertragsverlaengerung">Multibrand-KM</option>
         <option value="freenet-mobilfunk.de/os-offene-rechnung">Digitale-Bezahlseite-Freenet-Mobilfunk</option>
     </select>
 </div>
@@ -42,20 +57,100 @@
 </div>
 <div>
     <label for="tariff">Tarif:</label>
-    <input type="text" id="tariff" placeholder="ABCDE">
+    <input type="text" id="tariff" placeholder="12345">
 </div>
 <div>
     <label for="recommendationId">RecoId:</label>
-    <input type="text" id="recommendationId" placeholder="RecoId">
+    <input type="text" id="recommendationId" placeholder="12345">
 </div>
 <div>
     <button id="createUrl">Link erzeugen</button>
 </div>
 <hr>
 <div>
-    Lang URL: <a id="longLink" href="#"></a><br>
+    Lange URL: <a id="longLink" href="#"></a><br>
     Kurze URL: <a id="shortLink" href="#"></a><br>
 </div>
+<hr>
+<h3>
+    Wie werden die Links generiert?<br>
+</h3>
+<h4>Lange-URLs</h4>
+<p>
+    Als erstes haben wir in unseren Apps die langen URLs implementiert. Dort wird jeder Wert durch einen eigenen
+    Parameter angegeben. Abhängig davon, ob der Parameter datenschutzrechtlich relevant ist, wird er mittels
+    <code>base64</code> "verschlüsselt" (das wurde so tatsächlich vom Datenschutz abgenommen).<br>
+    Folgende Parameter gibt es:
+</p>
+<table>
+    <tr>
+        <th>Parameter</th>
+        <th>Verschlüsselt</th>
+        <th>App</th>
+        <th>Bedeutung</th>
+    </tr>
+    <tr>
+        <td><code>tan</code></td>
+        <td>nein</td>
+        <td>alle</td>
+        <td>Wert der TAN für den OIDC</td>
+    </tr>
+    <tr>
+        <td><code>customer</code></td>
+        <td>ja</td>
+        <td>alle</td>
+        <td>Kundennummer für den OIDC in Kombination mit der TAN</td>
+    </tr>
+    <tr>
+        <td><code>contract</code></td>
+        <td>ja</td>
+        <td>nicht digitale Bezahlseite</td>
+        <td>Vertragsnummer</td>
+    </tr>
+    <tr>
+        <td><code>hdlnr</code></td>
+        <td>ja</td>
+        <td>VVL-Landingpage</td>
+        <td>Händlernummer</td>
+    </tr>
+    <tr>
+        <td><code>tariff</code></td>
+        <td>nein</td>
+        <td>VVL-Landingpage</td>
+        <td>Tarif (VariantId)</td>
+    </tr>
+    <tr>
+        <td><code>recoid</code></td>
+        <td>nein</td>
+        <td>VVL-Landingpage</td>
+        <td>Recommender-ID</td>
+    </tr>
+</table>
+<h4>Kurze URLs</h4>
+<p>
+    Kurze URLs wurden erst später angefordert. Ziel war es, die URLs so kurz zu bekommen, dass sie auch in SMS
+    verwendet werden können.
+</p>
+<p>
+    Im Gegensatz zu den langen URLs gibt es nur noch den Parameter <code>q</code>, dessen Wert ein
+    <code>base64</code>-kodierter String ist. Dekodiert man den String, erhält man einen String,
+    der sich mit dem Doppelpunkt splitten lässt. Die Reihenfolge der einzelnen Komponenten legt die
+    Bedeutung fest:
+</p>
+<ol>
+    <li>tan</li>
+    <li>Kundennummer</li>
+    <li>Vertragsnummer</li>
+    <li>Händlernummer</li>
+    <li>Tarif</li>
+    <li>Recommender-ID</li>
+    <li>Gerät</li>
+</ol>
+<p>
+    Wenn Werte nicht angegeben werden, wird die entsprechende Komponente einfach leer gelassen. Doppelpunkte am Ende
+    dürfen ebenfalls weggelassen werden.
+</p>
+<p>Beispiel: <code>TAN:KUNDENNUMMER:::::</code> darf gekürzt werden in <code>TAN:KUNDENNUMMER</code></p>
 
 </body>
 <script>
@@ -73,9 +168,11 @@
         const shortLinkElement = document.getElementById('shortLink');
 
         appElement.addEventListener('change', function () {
-            const isDigitalPayment = isDigitalPaymentSelected();
-            salesPartnerElement.disabled = isDigitalPayment;
-            contractElement.disabled = isDigitalPayment;
+            contractElement.disabled = isDigitalPaymentSelected();
+            const isLandingPage = isLandingpageSelected();
+            salesPartnerElement.disabled = !isLandingPage;
+            tariffElement.disabled = !isLandingPage;
+            recommendationIdElement.disabled = !isLandingPage;
         });
         createUrlElement.addEventListener('click', () => {
             const app = appElement.value;
@@ -91,13 +188,16 @@
                     customer: {value: customerElement.value, base64: true},
                     contract: {value: contractElement.value, base64: true},
                     hdlnr: {value: salesPartnerElement.value, base64: true},
-                    tariff: {value: tariffElement.value, base64: true},
-                    recoid: {value: recommendationIdElement.value, base64: true},
+                    tariff: {value: tariffElement.value, base64: false},
+                    recoid: {value: recommendationIdElement.value, base64: false},
                 });
             }
             const linkPrefix = `${environment}.${app}?`;
             let link = linkPrefix + linkParams.map(
-                ([parameterName, {value, base64}]) => `${parameterName}=${encodeURIComponent(base64 ? btoa(value) : value)}`
+                ([parameterName, {
+                    value,
+                    base64
+                }]) => `${parameterName}=${encodeURIComponent(base64 ? btoa(value) : value)}`
             ).join('&');
             longLinkElement.innerText = link;
             longLinkElement.href = link;
@@ -108,6 +208,10 @@
 
         function isDigitalPaymentSelected() {
             return appElement.value === 'freenet-mobilfunk.de/os-offene-rechnung';
+        }
+
+        function isLandingpageSelected() {
+            return appElement.value === 'freenet-mobilfunk.de/onlineservice/vertragsverlaengerung/sonderangebot';
         }
     })();
 </script>
