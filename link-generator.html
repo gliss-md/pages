@@ -1,20 +1,32 @@
 <html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        div {
+            margin: 0.2em 0;
+        }
+    </style>
+</head>
 <body>
 <div>
-    <label for="app">App</label>
+    <label for="app">App:</label>
     <select id="app">
-        <option value="mobilcom-debitel.de/onlineservice/vertragsverlaengerung/sonderangebot">Landingpage</option>
-        <option value="mobilcom-debitel.de/onlineservice/vertragsverlaengerung">Multibrand-MD</option>
-        <option value="mobilcom-debitel.de/os-offene-rechnung">Digitale-Bezahlseite-MD</option>
+        <option value="freenet-mobilfunk.de/onlineservice/vertragsverlaengerung/sonderangebot">Landingpage</option>
+        <option value="freenet-mobilfunk.de/onlineservice/vertragsverlaengerung">Multibrand-Freenet-Mobilfunk</option>
         <option value="klarmobil.de/onlineservice/vertragsverlaengerung/sonderangebot">Multibrand-KM</option>
+        <option value="freenet-mobilfunk.de/os-offene-rechnung">Digitale-Bezahlseite-Freenet-Mobilfunk</option>
     </select>
 </div>
 <div>
-    <label for="environment">Umgebung</label>
+    <label for="environment">Umgebung:</label>
     <select id="environment">
         <option value="https://www-git">GIT</option>
-        <option value = "https://www">PROD</option>
+        <option value="https://www">PROD</option>
     </select>
+</div>
+<div>
+    <label for="tan">TAN:</label>
+    <input type="text" id="tan" placeholder="asdf">
 </div>
 <div>
     <label for="customer">Kundennummer:</label>
@@ -25,59 +37,78 @@
     <input type="text" id="contract" placeholder="MC.12345">
 </div>
 <div>
-    <label for="salespartner">Händlernummer:</label>
-    <input type="text" id="salespartner" placeholder="12345">
+    <label for="salesPartner">Händlernummer:</label>
+    <input type="text" id="salesPartner" placeholder="12345">
 </div>
 <div>
-    <label for="tan">TAN:</label>
-    <input type="text" id="tan" placeholder="asdf">
+    <label for="tariff">Tarif:</label>
+    <input type="text" id="tariff" placeholder="ABCDE">
+</div>
+<div>
+    <label for="recommendationId">RecoId:</label>
+    <input type="text" id="recommendationId" placeholder="RecoId">
 </div>
 <div>
     <button id="createUrl">Link erzeugen</button>
 </div>
 <hr>
 <div>
-    <a id="link" href="#">Beispiel-Link</a>
+    Lang URL: <a id="longLink" href="#"></a><br>
+    Kurze URL: <a id="shortLink" href="#"></a><br>
 </div>
+
 </body>
 <script>
-    var dropDown = document.getElementById("app");
-    function valueById(id) {
-        return document.getElementById(id).value
-    }
-    dropDown.addEventListener("change", function () {
-        if (dropDown.value === "mobilcom-debitel.de/os-offene-rechnung") {
-            salespartner.disabled = true;
-            contract.disabled = true;
-        }
-    });
-    document.getElementById('createUrl').addEventListener(
-        'click',
-        () => {
-            const linkElement = document.getElementById('link');
-            const app = valueById('app');
-            const environment = valueById('environment');
-            let link;
-            if (dropDown.value === "mobilcom-debitel.de/os-offene-rechnung"){
-                link = Object.entries({
-                    tan: {value: valueById('customer') + ':' + valueById('tan'), base64: true}
+    (function () {
+        const appElement = document.getElementById('app');
+        const environmentElement = document.getElementById('environment');
+        const tanElement = document.getElementById('tan');
+        const customerElement = document.getElementById('customer');
+        const contractElement = document.getElementById('contract');
+        const salesPartnerElement = document.getElementById('salesPartner');
+        const tariffElement = document.getElementById('tariff');
+        const recommendationIdElement = document.getElementById('recommendationId');
+        const createUrlElement = document.getElementById('createUrl');
+        const longLinkElement = document.getElementById('longLink');
+        const shortLinkElement = document.getElementById('shortLink');
+
+        appElement.addEventListener('change', function () {
+            const isDigitalPayment = isDigitalPaymentSelected();
+            salesPartnerElement.disabled = isDigitalPayment;
+            contractElement.disabled = isDigitalPayment;
+        });
+        createUrlElement.addEventListener('click', () => {
+            const app = appElement.value;
+            const environment = environmentElement.value;
+            let linkParams;
+            if (isDigitalPaymentSelected()) {
+                linkParams = Object.entries({
+                    tan: {value: `${customerElement.value}:${tanElement.value}`, base64: true}
                 });
             } else {
-                link = Object.entries({
-                    contract: {value: valueById('contract'), base64: true},
-                    customer: {value: valueById('customer'), base64: true},
-                    hdlnr: {value: valueById('salespartner'), base64: true},
-                    tan: {value: valueById('tan')},
-                })
+                linkParams = Object.entries({
+                    tan: {value: tanElement.value},
+                    customer: {value: customerElement.value, base64: true},
+                    contract: {value: contractElement.value, base64: true},
+                    hdlnr: {value: salesPartnerElement.value, base64: true},
+                    tariff: {value: tariffElement.value, base64: true},
+                    recoid: {value: recommendationIdElement.value, base64: true},
+                });
             }
-            link = link.reduce(
-                (result, [parameterName, {value, base64}]) =>
-                    `${result}&${parameterName}=${encodeURIComponent(base64 ? btoa(value) : value)}`,
-                ''
-            ).replace(/&/,`${environment}.${app}?`);
-            linkElement.innerText = link;
-            linkElement.href = link;
+            const linkPrefix = `${environment}.${app}?`;
+            let link = linkPrefix + linkParams.map(
+                ([parameterName, {value, base64}]) => `${parameterName}=${encodeURIComponent(base64 ? btoa(value) : value)}`
+            ).join('&');
+            longLinkElement.innerText = link;
+            longLinkElement.href = link;
+            link = linkPrefix + 'q=' + btoa(linkParams.map(([, {value}]) => value).join(':').replace(/:*$/, ''));
+            shortLinkElement.innerText = link;
+            shortLinkElement.href = link;
+        });
+
+        function isDigitalPaymentSelected() {
+            return appElement.value === 'freenet-mobilfunk.de/os-offene-rechnung';
         }
-    )
+    })();
 </script>
 </html>
