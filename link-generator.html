@@ -169,13 +169,17 @@
         const longLinkElement = document.getElementById('longLink');
         const shortLinkElement = document.getElementById('shortLink');
 
-        appElement.addEventListener('change', function () {
+        function changeListener () {
+            const isVVL = isVVLSelected();
+            const isLandingpage = isLandingpageSelected();
             contractElement.disabled = isDigitalPaymentSelected();
-            const isLandingPage = isLandingpageSelected();
-            salesPartnerElement.disabled = !isLandingPage;
-            tariffElement.disabled = !isLandingPage;
-            recommendationIdElement.disabled = !isLandingPage;
-        });
+            salesPartnerElement.disabled = !isLandingpage;
+            tariffElement.disabled = !isVVL;
+            recommendationIdElement.disabled = !isVVL || isLandingpage;
+        }
+        appElement.addEventListener('change', changeListener);
+        changeListener();
+
         createUrlElement.addEventListener('click', () => {
             const app = appElement.value;
             const environment = environmentElement.value;
@@ -214,6 +218,10 @@
 
         function isLandingpageSelected() {
             return appElement.value === 'freenet-mobilfunk.de/onlineservice/vertragsverlaengerung/sonderangebot';
+        }
+
+        function isVVLSelected() {
+            return String(appElement.value).includes('vertragsverlaengerung');
         }
     })();
 </script>
